@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #pdfContainer {
+            width: 100%;
+            height: calc(100vh - 50px);
+        }
+
+        #pdfViewer {
+            width: 100%;
+            height: 100%;
+        }
+
+        #banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #444444;
+            color: white;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            font-family: Helvetica, Arial, sans-serif;
+        }
+
+        #banner button {
+            font-size: 24px;
+            background-color: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #banner button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        #banner .material-icons {
+            vertical-align: middle;
+        }
+
+        #title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center; /* Added to center the title */
+        }
+
+        #progress {
+            cursor: pointer;
+            float: left; /* Moved the number to the left */
+        }
+
+        #pdfIndexDropdown {
+            position: absolute;
+            top: -200px;
+            right: 0;
+            width: 200px;
+            max-height: 200px;
+            background-color: #333333;
+            overflow-y: auto;
+            border-radius: 5px;
+            padding: 5px;
+            z-index: 1;
+        }
+
+        #pdfIndexDropdown li {
+            list-style-type: none;
+            margin: 5px;
+            cursor: pointer;
+            color: white;
+        }
+
+        #pdfIndexDropdown li:hover {
+            background-color: #555555;
+            border-radius: 5px;
+        }
+
+        #arrowKeys {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        #arrowKeys button {
+            font-size: 24px;
+            background-color: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #arrowKeys button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .key-icons {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .key-icons button {
+            font-size: 18px;
+            background-color: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+
+        .key-icons button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="pdfContainer">
+        <embed type="application/x-google-chrome-pdf" src="chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/b59d77a1-5ecd-46c6-86ac-41a793e2ad53" original-url="https://researchrepository.wvu.edu/cgi/viewcontent.cgi?article=3220&amp;context=wvu_syllabi" background-color="4283586137" javascript="allow" full-frame="">
+    </div>
+    <div id="banner">
+        <div class="key-icons">
+            <button onclick="closePopup('yes')"><i class="material-icons">check</i></button>
+            <button onclick="closePopup('no')"><i class="material-icons">close</i></button>
+            <button onclick="reset()"><i class="material-icons">refresh</i></button>
+        </div>
+        <div id="title">Syllabus Scanner 2.0</div>
+        <div class="key-icons">
+            <button onclick="exportResponses()"><i class="material-icons">file_download</i></button>
+            <button onclick="document.getElementById('fileInput').click()"><i class="material-icons">cloud_upload</i></button>
+        </div>
+    </div>
+    <ul id="pdfIndexDropdown"></ul>
+    <input type="file" id="fileInput" accept=".xlsx" style="display: none;">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        let urls = [];
+        let names = [];
+        let responses = [];
+        let currentPopup;
+        let currentIndex = -1;
+        let currentPDFIndex = 0;
+
+        const fileInput = document.getElementById('fileInput');
+        const pdfViewer = document.getElementById('pdfViewer');
+        const title = document.getElementById('title');
+        const progress = document.getElementById('progress');
+        const pdfIndexDropdown = document.getElementById('pdfIndexDropdown');
+        const banner = document.getElementById('banner');
+
+        fileInput.addEventListener('change', handleFile);
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                names = jsonData.map(row => row[0]);
+                urls = jsonData.map(row => {
+                    const num = parseInt(row[1].substring(row[1].lastIndexOf('=') + 1));
+                    const newNum = num + 999;
+                    return `https://researchrepository.wvu.edu/cgi/viewcontent.cgi?article=${newNum}&context=wvu_syllabi#page=2`;
+                });
+
+                responses = new Array(urls.length).fill('');
+
+                renderPDFViewer();
+                renderProgress();
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderPDFViewer() {
+            if (urls.length > 0) {
+                pdfViewer.setAttribute("src", urls[currentPDFIndex]);
+                title.innerText = names[currentPDFIndex];
+            } else {
+                pdfViewer.setAttribute("src", "");
+                title.innerText = "Syllabus Scanner 2.0";
+            }
+        }
+
+        function renderProgress() {
+            if (urls.length > 0) {
+                progress.innerText = `${currentPDFIndex + 1}/${urls.length}`;
+                progress.style.cursor = 'pointer';
+            } else {
+                progress.innerText = 'Syllabus Scanner 2.0';
+                progress.style.cursor = 'default';
+            }
+        }
+
+        function closePopup(action) {
+            responses[currentPDFIndex] = action === 'yes' ? 'Yes' : 'No';
+            currentPDFIndex++;
+            if (currentPDFIndex >= urls.length) {
+                currentPDFIndex = 0;
+            }
+            renderPDFViewer();
+            renderProgress();
+            updateBannerColor();
+        }
+
+        function reset() {
+            responses[currentPDFIndex] = '';
+            renderPDFViewer();
+            renderProgress();
+            updateBannerColor();
+        }
+
+        function openDropdown() {
+            pdfIndexDropdown.innerHTML = '';
+
+            for (let i = 0; i < urls.length; i++) {
+                const listItem = document.createElement('li');
+                listItem.innerText = `${i + 1}. ${names[i]}`;
+                listItem.addEventListener('click', () => {
+                    currentPDFIndex = i;
+                    renderPDFViewer();
+                    pdfIndexDropdown.style.top = '-250px';
+                });
+
+                pdfIndexDropdown.appendChild(listItem);
+            }
+
+            const rect = progress.getBoundingClientRect();
+            pdfIndexDropdown.style.top = `${rect.top - pdfIndexDropdown.offsetHeight}px`;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (urls.length > 0) {
+                if (e.key === '1') {
+                    closePopup('yes');
+                } else if (e.key === '2') {
+                    closePopup('no');
+                } else if (e.key === '3') {
+                    reset();
+                } else if (e.key === 'ArrowLeft') {
+                    if (currentPDFIndex > 0) {
+                        currentPDFIndex--;
+                        renderPDFViewer();
+                        updateBannerColor();
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    if (currentPDFIndex < urls.length - 1) {
+                        currentPDFIndex++;
+                        renderPDFViewer();
+                        updateBannerColor();
+                    }
+                }
+            }
+        });
+
+        function updateBannerColor() {
+            if (responses[currentPDFIndex] === 'Yes') {
+                banner.style.backgroundColor = '#7bd47b';
+            } else if (responses[currentPDFIndex] === 'No') {
+                banner.style.backgroundColor = '#e57373';
+            } else {
+                banner.style.backgroundColor = '#444444';
+            }
+        }
+
+        function exportResponses() {
+            const data = responses
+                .map((response, index) => [names[index], urls[index], response])
+                .filter(([name, url, response]) => response === 'Yes' || response === 'No');
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Responses');
+            XLSX.writeFile(wb, 'responses.xlsx');
+        }
+
+        renderPDFViewer();
+        renderProgress();
+        updateBannerColor();
+    </script>
+    <div id="arrowKeys">
+        <button onclick="navigatePDF('left')"><i class="material-icons">keyboard_arrow_left</i></button>
+        <button onclick="navigatePDF('right')"><i class="material-icons">keyboard_arrow_right</i></button>
+    </div>
+</body>
+</html>
