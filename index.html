@@ -176,9 +176,9 @@
 
                 names = jsonData.map(row => row[0]);
                 urls = jsonData.map(row => {
-                    const num = parseInt(row[1].substring(row[1].lastIndexOf('=') + 1));
+                    const num = parseInt(row[1].substring(row[1].lastIndexOf('/') + 1));
                     const newNum = num + 999;
-                    return `https://researchrepository.wvu.edu/cgi/viewcontent.cgi?article=${newNum}&context=wvu_syllabi#page=2`;
+                    return `https://researchrepository.wvu.edu/cgi/viewcontent.cgi?article=${newNum}&context=wvu_syllabi`;
                 });
 
                 responses = new Array(urls.length).fill('');
@@ -273,9 +273,9 @@
 
         function updateBannerColor() {
             if (responses[currentPDFIndex] === 'Yes') {
-                banner.style.backgroundColor = '#7bd47b';
+                banner.style.backgroundColor = 'green';
             } else if (responses[currentPDFIndex] === 'No') {
-                banner.style.backgroundColor = '#e57373';
+                banner.style.backgroundColor = 'red';
             } else {
                 banner.style.backgroundColor = '#444444';
             }
